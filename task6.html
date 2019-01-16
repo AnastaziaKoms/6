@@ -1,0 +1,424 @@
+<html>
+<head>
+    <title>Canvas & Mootools</title>
+    <meta charset="utf-8">
+    <script type="text/javascript"
+            src="https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.js"></script>
+    <script type="text/javascript">
+        let canvas, ctx, balls, rects, packs, idTimer;
+        let isSettedRandom = false, savedDirection = 0;
+        let isChaos = false;
+        TFigure = new Class({
+            initialize: function (pX, pY) {
+                this.posX = pX; //позиция шарика по X
+                this.posY = pY; //позиция шарика по Y
+                //цвет шарика, формируется случайным оьразом
+                this.colFigure = 'rgb(' + Math.floor(Math.random() * 256) + ','
+                    + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ')';
+                // радиус шарика, случайное число от 5 до 30
+                this.rFigure = 5 + Math.random() * 25;
+            },
+            posX: 0,
+            posY: 0,
+            colFigure: "rgb(0,0,0)",
+            rFigure: 0,
+            directionX: 0,
+            directionY: 0,
+            colorFigure: function (ctx) {
+                // формируем градиентную заливку для шарика
+                with (this) {
+                    var gradient = ctx.createRadialGradient(posX + rFigure / 4,
+                        posY - rFigure / 6, rFigure / 8, posX, posY, rFigure);
+                    gradient.addColorStop(0, '#f8f7ff');
+                    gradient.addColorStop(0.85, colFigure);
+                    return gradient;
+                }
+            },
+
+            moveMe: function (ctx) {
+                with (this) {
+                    rFigure++;
+                    posX += directionX * Math.random() * 4;
+                    posY += directionY * Math.random() * 4;
+                    big();
+                }
+            },
+
+
+        });
+
+        TBall = new Class({
+            Extends: TFigure,
+            initialize: function (pX, pY) {
+                this.parent(pX, pY);
+            },
+            draw: function (ctx) {
+                // рисуем шарик на canvas
+                with (this) {
+                    ctx.fillStyle = colorFigure(ctx);
+                    ctx.beginPath();
+                    ctx.arc(posX, posY, rFigure, 0, 2 * Math.PI, false);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+        });
+
+        TRect = new Class({
+            Extends: TFigure,
+            initialize: function (pX, pY) {
+                this.parent(pX, pY);
+            },
+            draw: function (ctx) {
+                with (this) {
+                    ctx.fillStyle = colorFigure(ctx);
+                    ctx.beginPath();
+                    ctx.fillRect(posX, posY, rFigure, rFigure);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+        });
+
+        TPackMan = new Class({
+            Extends: TFigure,
+            initialize: function (pX, pY) {
+                this.parent(pX, pY);
+            },
+            draw: function (ctx) {
+                with (this) {
+                    ctx.fillStyle = colorFigure(ctx);
+                    ctx.beginPath();
+                    ctx.arc(posX, posY, rFigure, Math.PI / 4, 7 * Math.PI / 4, false);
+                    ctx.lineTo(posX, posY);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+        });
+
+
+        function drawBack(ctx, col1, col2, w, h) {
+            // закрашиваем канвас градиентным фоном
+            ctx.save();
+            var g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(1, col1);
+            g.addColorStop(0, col2);
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, w, h);
+            ctx.restore();
+        }
+
+        // инициализация работы
+        function init() {
+            canvas = document.getElementById('canvas');
+            if (canvas.getContext) {
+                ctx = canvas.getContext('2d');
+                //рисуем фон
+                drawBack(ctx, '#5affac', '#e388df', canvas.width, canvas.height);
+                //создаем 10 шариков, заноси их в массив и выводим на canvas
+                balls = [];
+                rects = [];
+                packs = [];
+                for (let i = 1; i <= 10; i++) {
+                    let item = new TRect(10 + Math.random() * (canvas.width - 30),
+                        10 + Math.random() * (canvas.height - 30));
+                    item.draw(ctx);
+                    rects.push(item);
+
+                    item = new TBall(10 + Math.random() * (canvas.width - 30),
+                        10 + Math.random() * (canvas.height - 30));
+                    item.draw(ctx);
+                    balls.push(item);
+
+                    item = new TPackMan(10 + Math.random() * (canvas.width - 30),
+                        10 + Math.random() * (canvas.height - 30));
+                    item.draw(ctx);
+                    packs.push(item);
+
+                }
+            }
+        }
+
+        // создаем новый шарик по щелчку мыши, добавляем его в массив шариков и рисуем его
+        function goInput(event) {
+            let x = event.clientX;
+            let y = event.clientY;
+            let r = Math.random();
+            let item;
+            if (r >= 0.7)
+                item = new TBall(x, y);
+            else if (r >= 0.4)
+                item = new TRect(x, y);
+            else if (r >= 0)
+                item = new TPackMan(x, y);
+            item.draw(ctx);
+            balls.push(item);
+        }
+
+        function getRandomDirection() {
+            let g = Math.random();
+            if (g <= 0.25)
+                return 1;
+            if (g <= 0.5)
+                return 2;
+            if (g <= 0.75)
+                return 3;
+            return 4;
+        }
+
+        function moveBall(dir) {
+            //реализация движения шариков, находящихся в массиве balls
+            drawBack(ctx, '#5affac', '#e388df', canvas.width, canvas.height);
+            switch (dir) {
+                case 1:
+                    for (let i = 0; i < balls.length; i) {
+                        balls[i].directionX = 0;
+                        balls[i].directionY = -1;
+                        balls[i].moveMe();
+                        balls[i].draw(ctx);
+
+                        if ((balls[i].posX > canvas.width) || (balls[i].posX < 0) || (balls[i].posY < 0))
+                            balls.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < rects.length; i) {
+                        rects[i].directionX = 0;
+                        rects[i].directionY = -1;
+                        rects[i].moveMe();
+                        rects[i].draw(ctx);
+
+
+                        if ((rects[i].posX > canvas.width) || (rects[i].posX < 0) || (rects[i].posY < 0))
+                            rects.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < packs.length; i) {
+                        packs[i].directionX = 0;
+                        packs[i].directionY = -1;
+                        packs[i].moveMe();
+                        packs[i].draw(ctx);
+
+
+                        if ((packs[i].posX > canvas.width) || (packs[i].posX < 0) || (packs[i].posY < 0))
+                            packs.splice(i, 1);
+                        else
+                            i++;
+                    }
+                    break;
+                case 2:
+                    for (let i = 0; i < balls.length; i) {
+                        balls[i].directionX = 0;
+                        balls[i].directionY = 1;
+                        balls[i].moveMe();
+                        balls[i].draw(ctx);
+
+                        if ((balls[i].posX > canvas.width) || (balls[i].posX < 0) || (balls[i].posY < 0))
+                            balls.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < rects.length; i) {
+                        rects[i].directionX = 0;
+                        rects[i].directionY = 1;
+                        rects[i].moveMe();
+                        rects[i].draw(ctx);
+
+
+                        if ((rects[i].posX > canvas.width) || (rects[i].posX < 0) || (rects[i].posY < 0))
+                            rects.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < packs.length; i) {
+                        packs[i].directionX = 0;
+                        packs[i].directionY = 1;
+                        packs[i].moveMe();
+                        packs[i].draw(ctx);
+
+
+                        if ((packs[i].posX > canvas.width) || (packs[i].posX < 0) || (packs[i].posY < 0))
+                            packs.splice(i, 1);
+                        else
+                            i++;
+                    }
+                    break;
+                case 3:
+                    for (let i = 0; i < balls.length; i) {
+                        balls[i].directionX = 1;
+                        balls[i].directionY = 0;
+                        balls[i].moveMe();
+                        balls[i].draw(ctx);
+
+                        if ((balls[i].posX > canvas.width) || (balls[i].posX < 0) || (balls[i].posY < 0))
+                            balls.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < rects.length; i) {
+                        rects[i].directionX = 1;
+                        rects[i].directionY = 0;
+                        rects[i].moveMe();
+                        rects[i].draw(ctx);
+
+
+                        if ((rects[i].posX > canvas.width) || (rects[i].posX < 0) || (rects[i].posY < 0))
+                            rects.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < packs.length; i) {
+                        packs[i].directionX = 1;
+                        packs[i].directionY = 0;
+                        packs[i].moveMe();
+                        packs[i].draw(ctx);
+
+
+                        if ((packs[i].posX > canvas.width) || (packs[i].posX < 0) || (packs[i].posY < 0))
+                            packs.splice(i, 1);
+                        else
+                            i++;
+                    }
+                    break;
+                case 4:
+                    for (let i = 0; i < balls.length; i) {
+                        balls[i].directionX = -1;
+                        balls[i].directionY = 0;
+                        balls[i].moveMe();
+                        balls[i].draw(ctx);
+
+                        if ((balls[i].posX > canvas.width) || (balls[i].posX < 0) || (balls[i].posY < 0))
+                            balls.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < rects.length; i) {
+                        rects[i].directionX = -1;
+                        rects[i].directionY = 0;
+                        rects[i].moveMe();
+                        rects[i].draw(ctx);
+
+
+                        if ((rects[i].posX > canvas.width) || (rects[i].posX < 0) || (rects[i].posY < 0))
+                            rects.splice(i, 1);
+                        else
+                            i++;
+                    }
+
+                    for (let i = 0; i < packs.length; i) {
+                        packs[i].directionX = -1;
+                        packs[i].directionY = 0;
+                        packs[i].moveMe();
+                        packs[i].draw(ctx);
+
+
+                        if ((packs[i].posX > canvas.width) || (packs[i].posX < 0) || (packs[i].posY < 0))
+                            packs.splice(i, 1);
+                        else
+                            i++;
+                    }
+                    break;
+                case 5:
+                    if (savedDirection !== 0)
+                        moveBall(savedDirection);
+                    if (!isSettedRandom) {
+                        savedDirection = getRandomDirection();
+                        moveBall(savedDirection);
+                        isSettedRandom = true;
+                    }
+                    break;
+                case 6:
+                    savedDirection = getRandomDirection();
+                    moveBall(savedDirection);
+
+
+            }
+        }
+
+
+        function move(dir) {
+            clearInterval(idTimer);
+            isSettedRandom = false;
+            savedDirection = 0;
+            idTimer = setInterval("moveBall(" + dir + ");", 30);
+        }
+
+        function dist(x1, y1, x2, y2) {
+            return Math.sqrt(Math.sqr(x1 - x2) + Math.sqr(y1 - y2));
+        }
+
+        function big() {
+            for (let i = 0; i < balls.length; i) {
+                if(balls[i].rFigure >= 70) {
+                    balls.splice(i, 1);
+                    continue;
+                }
+                balls[i].draw(ctx);
+                i++;
+            }
+            for (let i = 0; i < rects.length; i) {
+                if(rects[i].rFigure >= 70) {
+                    rects.splice(i, 1);
+                    continue;
+                }
+                rects[i].draw(ctx);
+                i++;
+            }
+            for (let i = 0; i < packs.length; i) {
+                if(packs[i].rFigure >= 70) {
+                    packs.splice(i, 1);
+                    continue;
+                }
+                packs[i].draw(ctx);
+                i++;
+            }
+        }
+
+
+        // function collision(rect1, rect2) {
+        // 	if (dist(rect1.posX, rect1.posY, rect2.posX, rect2.posY) <= rect.rFigure)
+        // 		return true;
+        // 	if (dist(rect.posX + rect.rFigure, rect.posY, ball.posX, ball.posY) <= ball.rFigure)
+        // 		return true;
+        // 	if (dist(rect.posX, rect.posY + rect.rFigure, ball.posX, ball.posY) <= ball.rFigure)
+        // 		return true;
+        // 	if (dist(rect.posX + rect.rFigure, rect.posY + rect.rFigure, ball.posX, ball.posY) <= ball.rFigure)
+        // 		return true;
+        // 	if ((ball.posY <= rect.posY) &&  (ball.posY >= rect.posY + rect.rFigure) && ((Math.abs(ball.posX-rect.posX-rect.rFigure) <= ball.rFigure)
+        // 		|| ((Math.abs(ball.posX-rect.posX) <= ball.rFigure))))
+        // 		return true;
+        // 	if ((ball.posX >= rect.posX) && (ball.posX <= rect.posX + rect.rFigure) && ((Math.abs(ball.posY-rect.posY-rect.rFigure) <= ball.rFigure)
+        // 		|| ((Math.abs(ball.posY-rect.posY) <= ball.rFigure))))
+        // 		return true;
+        // }
+
+    </script>
+    <style type="text/css">
+        canvas {
+            border: 1px solid #fff9ff;
+        }
+    </style>
+</head>
+<body onload="init();">
+<canvas id="canvas" width="600" height="400" onclick="goInput(event);">
+</canvas>
+<form>
+    <input type="button" value="Движение вверх" onclick="move(1)">
+    <input type="button" value="Движение вниз" onclick="move(2)">
+    <input type="button" value="Движение вправо" onclick="move(3)">
+    <input type="button" value="Движение влево" onclick="move(4)">
+    <input type="button" value="Рандом" onclick="move(5)">
+    <input type="button" value="Хаос" onclick="move(6)">
+    <input type="button" value="Стоп" onclick="clearInterval(idTimer);">
+</form>
+</body>
+</html>
